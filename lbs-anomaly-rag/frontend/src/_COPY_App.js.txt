@@ -1,0 +1,11 @@
+⚠️ REQUIRED: Copy App.js
+
+Copy the content from artifact: lbs_frontend_app
+
+Main React application (~800 lines) with:
+- Anomaly dashboard
+- Date picker
+- Dimension selector
+- Charts and visualizations
+- Data grid
+- Natural language chat
