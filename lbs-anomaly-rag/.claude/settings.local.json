@@ -8,7 +8,9 @@
       "Bash(timeout /t 3)",
       "Bash(curl:*)",
       "Bash(npm start)",
-      "Bash(timeout 15 bash:*)"
+      "Bash(timeout 15 bash:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 5)"
     ]
   }
 }

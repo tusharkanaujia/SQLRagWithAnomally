@@ -294,6 +294,12 @@ async def detect_comparative(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/test-endpoint")
+async def test_endpoint():
+    """Test endpoint to verify registration"""
+    return {"message": "test endpoint works!"}
+
+
 @app.get("/anomalies/day-on-day")
 async def detect_day_on_day(
     dimension: str = Query("ProductKey", description="Dimension: ProductKey, CustomerKey, TerritoryKey, PromotionKey"),
