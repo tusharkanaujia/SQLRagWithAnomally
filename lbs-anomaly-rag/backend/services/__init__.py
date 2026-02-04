@@ -1,4 +1,4 @@
 """Services package"""
-from services.sales_rag import SalesRAGService
+from services.rag_service import RAGService
 
-__all__ = ['SalesRAGService']
+__all__ = ['RAGService']

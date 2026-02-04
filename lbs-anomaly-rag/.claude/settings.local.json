@@ -10,7 +10,8 @@
       "Bash(npm start)",
       "Bash(timeout 15 bash:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout /t 5)"
+      "Bash(timeout /t 5)",
+      "Bash(test:*)"
     ]
   }
 }

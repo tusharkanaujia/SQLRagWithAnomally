@@ -23,3 +23,6 @@ logs/
 # Cache
 .cache/
 *.cache
+
+# Vector Database
+chroma_db/

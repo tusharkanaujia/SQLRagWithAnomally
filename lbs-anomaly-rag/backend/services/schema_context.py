@@ -1,235 +1,22 @@
 """Schema context for LLM-based SQL generation"""
+import sys
+import os
 
-SALES_SCHEMA_CONTEXT = """
-# AdventureWorksDW2019 - Internet Sales Data Warehouse Schema
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-## Overview
-This is a star schema for analyzing internet sales data with dimensions for customers, products, dates, territories, currencies, and promotions.
-
-## Fact Table
-
-### FactInternetSales (60,398 rows)
-Main fact table containing internet sales transactions.
-
-**Primary Keys:**
-- SalesOrderNumber (nvarchar(20)) + SalesOrderLineNumber (tinyint)
-
-**Foreign Keys:**
-- ProductKey (int) -> DimProduct.ProductKey
-- CustomerKey (int) -> DimCustomer.CustomerKey
-- OrderDateKey (int) -> DimDate.DateKey
-- DueDateKey (int) -> DimDate.DateKey
-- ShipDateKey (int) -> DimDate.DateKey
-- SalesTerritoryKey (int) -> DimSalesTerritory.SalesTerritoryKey
-- CurrencyKey (int) -> DimCurrency.CurrencyKey
-- PromotionKey (int) -> DimPromotion.PromotionKey
-
-**Measures (Metrics):**
-- SalesAmount (money) - Total sales amount in transaction currency
-- OrderQuantity (smallint) - Number of units ordered
-- UnitPrice (money) - Price per unit
-- ExtendedAmount (money) - Line item total before discount
-- DiscountAmount (float) - Total discount applied
-- UnitPriceDiscountPct (float) - Discount percentage
-- TaxAmt (money) - Tax amount
-- Freight (money) - Shipping cost
-- ProductStandardCost (money) - Standard cost of product
-- TotalProductCost (money) - Total product cost for line
-
-**Other Columns:**
-- OrderDate (datetime) - Order date
-- DueDate (datetime) - Due date
-- ShipDate (datetime) - Ship date
-- CarrierTrackingNumber (nvarchar(25))
-- CustomerPONumber (nvarchar(25))
-- RevisionNumber (tinyint)
-
-## Dimension Tables
-
-### DimCustomer (18,484 rows)
-Customer demographic and contact information.
-
-**Primary Key:** CustomerKey (int)
-
-**Important Columns:**
-- CustomerAlternateKey (nvarchar(15)) - Customer ID
-- FirstName, MiddleName, LastName (nvarchar(50))
-- FullName: Use CONCAT or + to combine FirstName, ' ', LastName
-- EmailAddress (nvarchar(50))
-- Gender (nvarchar(1)) - 'M' or 'F'
-- BirthDate (date)
-- MaritalStatus (nchar(1)) - 'S' or 'M'
-- YearlyIncome (money)
-- TotalChildren (tinyint)
-- NumberChildrenAtHome (tinyint)
-- EnglishEducation (nvarchar(40)) - Education level
-- EnglishOccupation (nvarchar(100)) - Job title
-- HouseOwnerFlag (nchar(1)) - '0' or '1'
-- NumberCarsOwned (tinyint)
-- CommuteDistance (nvarchar(15))
-- DateFirstPurchase (date)
-- Phone (nvarchar(20))
-- AddressLine1, AddressLine2 (nvarchar(120))
-
-### DimProduct (606 rows)
-Product catalog information.
-
-**Primary Key:** ProductKey (int)
-
-**Important Columns:**
-- ProductAlternateKey (nvarchar(25)) - Product SKU
-- EnglishProductName (nvarchar(50)) - Product name
-- ProductSubcategoryKey (int) - Links to DimProductSubcategory
-- Color (nvarchar(15))
-- Size (nvarchar(50))
-- SizeRange (nvarchar(50))
-- Weight (float)
-- StandardCost (money)
-- ListPrice (money)
-- DealerPrice (money)
-- ProductLine (nchar(2)) - 'R', 'M', 'T', 'S'
-- Class (nchar(2)) - 'L', 'M', 'H'
-- Style (nchar(2)) - 'W', 'M', 'U'
-- ModelName (nvarchar(50))
-- EnglishDescription (nvarchar(400))
-- Status (nvarchar(7)) - 'Current' or NULL
-- StartDate, EndDate (datetime)
-
-### DimDate (3,652 rows)
-Date dimension for time-based analysis.
-
-**Primary Key:** DateKey (int) - Format: YYYYMMDD (e.g., 20140101)
-
-**Important Columns:**
-- FullDateAlternateKey (date) - Actual date value
-- DayNumberOfWeek (tinyint) - 1-7 (Monday=1)
-- EnglishDayNameOfWeek (nvarchar(10))
-- DayNumberOfMonth (tinyint) - 1-31
-- DayNumberOfYear (smallint) - 1-366
-- WeekNumberOfYear (tinyint) - 1-53
-- EnglishMonthName (nvarchar(10))
-- MonthNumberOfYear (tinyint) - 1-12
-- CalendarQuarter (tinyint) - 1-4
-- CalendarYear (smallint) - e.g., 2013, 2014
-- CalendarSemester (tinyint) - 1-2
-- FiscalQuarter (tinyint) - 1-4
-- FiscalYear (smallint)
-- FiscalSemester (tinyint) - 1-2
-
-**Date Ranges:** Covers years 2010-2014
-
-### DimSalesTerritory (11 rows)
-Sales territory geographical information.
-
-**Primary Key:** SalesTerritoryKey (int)
-
-**Important Columns:**
-- SalesTerritoryAlternateKey (int)
-- SalesTerritoryRegion (nvarchar(50)) - e.g., 'Northwest', 'Northeast'
-- SalesTerritoryCountry (nvarchar(50)) - e.g., 'United States', 'Canada'
-- SalesTerritoryGroup (nvarchar(50)) - e.g., 'North America', 'Europe'
-
-### DimCurrency (105 rows)
-Currency information for international sales.
-
-**Primary Key:** CurrencyKey (int)
-
-**Important Columns:**
-- CurrencyAlternateKey (nchar(3)) - ISO code (e.g., 'USD', 'EUR', 'GBP')
-- CurrencyName (nvarchar(50)) - e.g., 'US Dollar', 'Euro'
-
-### DimPromotion (16 rows)
-Promotion and discount campaign information.
-
-**Primary Key:** PromotionKey (int)
-
-**Important Columns:**
-- PromotionAlternateKey (int)
-- EnglishPromotionName (nvarchar(255))
-- DiscountPct (float) - Discount percentage
-- EnglishPromotionType (nvarchar(50))
-- EnglishPromotionCategory (nvarchar(50))
-- StartDate (datetime)
-- EndDate (datetime)
-- MinQty (int) - Minimum quantity required
-- MaxQty (int) - Maximum quantity allowed
-
-## Common Query Patterns
-
-### Total Sales by Year
-```sql
-SELECT
-    dt.CalendarYear,
-    SUM(sal.SalesAmount) AS TotalSales
-FROM FactInternetSales sal
-INNER JOIN DimDate dt ON dt.DateKey = sal.OrderDateKey
-GROUP BY dt.CalendarYear
-ORDER BY dt.CalendarYear
-```
-
-### Top Customers
-```sql
-SELECT TOP 10
-    cust.FirstName + ' ' + cust.LastName AS CustomerName,
-    COUNT(DISTINCT sal.SalesOrderNumber) AS OrderCount,
-    SUM(sal.SalesAmount) AS TotalPurchases
-FROM FactInternetSales sal
-INNER JOIN DimCustomer cust ON cust.CustomerKey = sal.CustomerKey
-GROUP BY cust.CustomerKey, cust.FirstName, cust.LastName
-ORDER BY TotalPurchases DESC
-```
-
-### Product Sales Analysis
-```sql
-SELECT
-    prod.EnglishProductName,
-    SUM(sal.OrderQuantity) AS UnitsSold,
-    SUM(sal.SalesAmount) AS Revenue,
-    AVG(sal.UnitPrice) AS AvgPrice
-FROM FactInternetSales sal
-INNER JOIN DimProduct prod ON prod.ProductKey = sal.ProductKey
-GROUP BY prod.ProductKey, prod.EnglishProductName
-ORDER BY Revenue DESC
-```
-
-### Sales by Territory
-```sql
-SELECT
-    st.SalesTerritoryCountry,
-    st.SalesTerritoryRegion,
-    SUM(sal.SalesAmount) AS TotalSales,
-    COUNT(DISTINCT sal.CustomerKey) AS UniqueCustomers
-FROM FactInternetSales sal
-INNER JOIN DimSalesTerritory st ON st.SalesTerritoryKey = sal.SalesTerritoryKey
-GROUP BY st.SalesTerritoryCountry, st.SalesTerritoryRegion
-ORDER BY TotalSales DESC
-```
-
-## Important Notes
-
-1. **Date Keys**: Always join to DimDate using DateKey fields (OrderDateKey, DueDateKey, ShipDateKey)
-2. **Customer Names**: Concatenate FirstName and LastName with space: `FirstName + ' ' + LastName`
-3. **All Money Columns**: Use SUM() for aggregations, never COUNT()
-4. **Year Queries**: Use DimDate.CalendarYear, not YEAR(OrderDate)
-5. **TOP N Queries**: Use `TOP N` in SELECT, and always include ORDER BY
-6. **NULL Promotions**: PromotionKey = 1 typically means "No Discount"
-7. **Currency**: Most sales are in USD, but join to DimCurrency for currency name
-8. **Fiscal vs Calendar**: Data supports both fiscal and calendar year analysis
-
-## Schema Alias Conventions
-- FactInternetSales: `sal`
-- DimCustomer: `cust`
-- DimProduct: `prod`
-- DimDate: `dt`
-- DimSalesTerritory: `st`
-- DimCurrency: `curr`
-- DimPromotion: `promo`
-"""
+from config.schema_manager import get_schema_manager
 
 
 def get_schema_context():
-    """Return the schema context for RAG"""
-    return SALES_SCHEMA_CONTEXT
+    """
+    Return the schema context for RAG
+
+    This now dynamically loads from schema_config.json
+    making it easy to maintain and update
+    """
+    manager = get_schema_manager()
+    return manager.generate_schema_context_text() + "\n\n" + manager.get_joins_text()
 
 
 def get_example_queries():
@@ -355,3 +142,27 @@ ORDER BY dt.FiscalYear, dt.FiscalQuarter
             "intent": "fiscal_analysis"
         }
     ]
+
+
+def get_table_list():
+    """Get list of all table names"""
+    manager = get_schema_manager()
+    return manager.get_table_list()
+
+
+def get_column_list(table_name: str):
+    """Get list of column names for a table"""
+    manager = get_schema_manager()
+    return manager.get_column_list(table_name)
+
+
+def get_fact_tables():
+    """Get list of fact tables"""
+    manager = get_schema_manager()
+    return [table['name'] for table in manager.get_fact_tables()]
+
+
+def get_dimension_tables():
+    """Get list of dimension tables"""
+    manager = get_schema_manager()
+    return [table['name'] for table in manager.get_dimension_tables()]

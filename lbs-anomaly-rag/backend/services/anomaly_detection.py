@@ -1,4 +1,4 @@
-"""Anomaly Detection Service for Sales Data"""
+"""Anomaly Detection Service"""
 import pyodbc
 import pandas as pd
 import numpy as np
@@ -9,8 +9,8 @@ from sklearn.ensemble import IsolationForest
 from config.settings import settings
 
 
-class SalesAnomalyDetector:
-    """Detect anomalies in sales data using multiple methods"""
+class AnomalyDetector:
+    """Detect anomalies in data warehouse using multiple methods"""
 
     def __init__(self):
         self.zscore_threshold = 3.0
@@ -28,7 +28,7 @@ class SalesAnomalyDetector:
         lookback_days: int = 90
     ) -> Dict[str, Any]:
         """
-        Detect time series anomalies in sales data
+        Detect time series anomalies in data
 
         Args:
             metric: Metric to analyze (SalesAmount, OrderQuantity, etc.)
@@ -627,6 +627,187 @@ class SalesAnomalyDetector:
             "statistics": statistics,
             "method": "day_on_day",
             "all_data": df.to_dict('records')
+        }
+
+    def detect_prophet_anomalies(
+        self,
+        metric: str = "SalesAmount",
+        lookback_days: int = 90,
+        forecast_days: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Detect anomalies using Prophet forecasting with trend and seasonality
+
+        This method uses Facebook Prophet to:
+        - Automatically detect daily, weekly, and yearly seasonality
+        - Identify trend changes
+        - Flag values outside forecasted confidence intervals
+
+        Args:
+            metric: Metric to analyze (SalesAmount, OrderQuantity)
+            lookback_days: Number of historical days to analyze
+            forecast_days: Number of days to forecast into the future
+
+        Returns:
+            Dictionary with anomalies, forecast, and trend analysis
+        """
+        try:
+            from prophet import Prophet
+        except ImportError:
+            return {
+                "error": "Prophet not installed. Run: pip install prophet",
+                "anomalies": [],
+                "statistics": {}
+            }
+
+        conn = self._get_db_connection()
+
+        # Get historical data
+        query = f"""
+        SELECT
+            CAST(dt.FullDateAlternateKey AS DATE) AS Date,
+            SUM(sal.{metric}) AS Value,
+            COUNT(DISTINCT sal.SalesOrderNumber) AS OrderCount
+        FROM FactInternetSales sal
+        INNER JOIN DimDate dt ON dt.DateKey = sal.OrderDateKey
+        WHERE dt.FullDateAlternateKey >= DATEADD(day, -{lookback_days}, GETDATE())
+            AND dt.FullDateAlternateKey < CAST(GETDATE() AS DATE)
+        GROUP BY CAST(dt.FullDateAlternateKey AS DATE)
+        ORDER BY Date
+        """
+
+        df = pd.read_sql(query, conn)
+        conn.close()
+
+        if len(df) < 14:
+            return {
+                "error": f"Insufficient data: {len(df)} days (need at least 14)",
+                "anomalies": [],
+                "statistics": {}
+            }
+
+        # Prepare data for Prophet (requires 'ds' and 'y' columns)
+        df_prophet = df.rename(columns={'Date': 'ds', 'Value': 'y'})
+
+        # Train Prophet model
+        model = Prophet(
+            daily_seasonality=False,  # Not enough resolution for daily
+            weekly_seasonality=True,
+            yearly_seasonality=True if lookback_days >= 365 else False,
+            changepoint_prior_scale=0.05,  # Flexibility of trend changes
+            interval_width=0.95  # 95% confidence interval
+        )
+
+        # Fit model
+        model.fit(df_prophet)
+
+        # Make forecast (historical + future)
+        future = model.make_future_dataframe(periods=forecast_days)
+        forecast = model.predict(future)
+
+        # Detect anomalies (actual values outside confidence interval)
+        anomalies = []
+
+        for i, row in df_prophet.iterrows():
+            date = row['ds']
+            actual = row['y']
+
+            # Get forecast for this date
+            forecast_row = forecast[forecast['ds'] == date]
+
+            if not forecast_row.empty:
+                predicted = forecast_row.iloc[0]['yhat']
+                lower_bound = forecast_row.iloc[0]['yhat_lower']
+                upper_bound = forecast_row.iloc[0]['yhat_upper']
+                trend = forecast_row.iloc[0]['trend']
+
+                # Check if anomaly
+                is_anomaly = actual < lower_bound or actual > upper_bound
+
+                if is_anomaly:
+                    deviation_pct = ((actual - predicted) / predicted) * 100 if predicted != 0 else 0
+
+                    # Determine type and severity
+                    if actual > upper_bound:
+                        anomaly_type = "spike"
+                        severity = "high" if deviation_pct > 100 else "medium"
+                    else:
+                        anomaly_type = "drop"
+                        severity = "high" if deviation_pct < -50 else "medium"
+
+                    # Generate natural language description
+                    if actual > predicted:
+                        change_direction = "exceeded forecast"
+                    else:
+                        change_direction = "fell below forecast"
+
+                    nl_description = (
+                        f"{severity.capitalize()} severity {anomaly_type} detected on {str(date)}. "
+                        f"The {metric} {change_direction} by {abs(deviation_pct):.1f}%. "
+                        f"Actual: {actual:,.0f}, Forecasted: {predicted:,.0f} "
+                        f"(95% confidence interval: {lower_bound:,.0f} - {upper_bound:,.0f}). "
+                        f"Current trend: {trend:,.0f}."
+                    )
+
+                    anomaly = {
+                        "date": str(date.date()),
+                        "actual_value": float(actual),
+                        "forecasted_value": float(predicted),
+                        "lower_bound": float(lower_bound),
+                        "upper_bound": float(upper_bound),
+                        "trend": float(trend),
+                        "deviation_pct": float(deviation_pct),
+                        "type": anomaly_type,
+                        "severity": severity,
+                        "description": nl_description
+                    }
+
+                    anomalies.append(anomaly)
+
+        # Generate future forecast insights
+        future_forecast = []
+        future_data = forecast[forecast['ds'] > df_prophet['ds'].max()].head(forecast_days)
+
+        for _, row in future_data.iterrows():
+            future_forecast.append({
+                "date": str(row['ds'].date()),
+                "forecasted_value": float(row['yhat']),
+                "lower_bound": float(row['yhat_lower']),
+                "upper_bound": float(row['yhat_upper']),
+                "trend": float(row['trend'])
+            })
+
+        # Calculate statistics
+        statistics = {
+            "total_days_analyzed": len(df),
+            "anomaly_count": len(anomalies),
+            "anomaly_rate_pct": round((len(anomalies) / len(df)) * 100, 2),
+            "metric": metric,
+            "lookback_days": lookback_days,
+            "forecast_days": forecast_days,
+            "spike_count": len([a for a in anomalies if a['type'] == 'spike']),
+            "drop_count": len([a for a in anomalies if a['type'] == 'drop']),
+            "avg_deviation_pct": round(
+                sum(abs(a['deviation_pct']) for a in anomalies) / len(anomalies), 2
+            ) if anomalies else 0,
+            "model_components": {
+                "has_weekly_seasonality": True,
+                "has_yearly_seasonality": lookback_days >= 365,
+                "trend_detected": True
+            }
+        }
+
+        return {
+            "anomalies": anomalies,
+            "future_forecast": future_forecast,
+            "statistics": statistics,
+            "method": "prophet",
+            "model_info": {
+                "algorithm": "Prophet (Facebook)",
+                "confidence_interval": "95%",
+                "seasonality": "Weekly" + (", Yearly" if lookback_days >= 365 else ""),
+                "description": "Forecasting-based anomaly detection with trend and seasonality"
+            }
         }
 
     def detect_all_anomalies(self) -> Dict[str, Any]:

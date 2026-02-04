@@ -1,0 +1,290 @@
+{
+  "anomaly_detection": {
+    "description": "Anomaly detection configuration for sales data",
+    "enabled": true,
+
+    "time_series": {
+      "enabled": true,
+      "description": "Detect anomalies in time series data using moving averages",
+      "configurations": [
+        {
+          "name": "Daily Sales Anomalies",
+          "enabled": true,
+          "metric": "SalesAmount",
+          "granularity": "daily",
+          "lookback_days": 90,
+          "window_size": 7,
+          "threshold_std": 2.5,
+          "filters": {
+            "min_date": null,
+            "max_date": null
+          }
+        },
+        {
+          "name": "Monthly Sales Anomalies",
+          "enabled": true,
+          "metric": "SalesAmount",
+          "granularity": "monthly",
+          "lookback_days": 365,
+          "window_size": 3,
+          "threshold_std": 2.0,
+          "filters": {}
+        }
+      ]
+    },
+
+    "statistical": {
+      "enabled": true,
+      "description": "Detect outliers using statistical methods",
+      "configurations": [
+        {
+          "name": "Product Sales Outliers",
+          "enabled": true,
+          "dimension": "ProductKey",
+          "dimension_name_column": "EnglishProductName",
+          "dimension_table": "DimProduct",
+          "metric": "SalesAmount",
+          "method": "zscore",
+          "threshold": 3.0,
+          "min_transactions": 10,
+          "filters": {
+            "date_column": "OrderDateKey",
+            "date_range_days": 365
+          },
+          "additional_columns": [
+            "Color",
+            "ProductLine",
+            "Class"
+          ]
+        },
+        {
+          "name": "Customer Purchase Outliers",
+          "enabled": true,
+          "dimension": "CustomerKey",
+          "dimension_name_column": "CONCAT(FirstName, ' ', LastName)",
+          "dimension_table": "DimCustomer",
+          "metric": "SalesAmount",
+          "method": "iqr",
+          "multiplier": 1.5,
+          "min_transactions": 5,
+          "filters": {
+            "date_column": "OrderDateKey",
+            "date_range_days": 365
+          },
+          "additional_columns": [
+            "EnglishEducation",
+            "YearlyIncome"
+          ]
+        },
+        {
+          "name": "Territory Performance Outliers",
+          "enabled": true,
+          "dimension": "SalesTerritoryKey",
+          "dimension_name_column": "SalesTerritoryRegion",
+          "dimension_table": "DimSalesTerritory",
+          "metric": "SalesAmount",
+          "method": "zscore",
+          "threshold": 2.5,
+          "min_transactions": 1,
+          "filters": {
+            "date_column": "OrderDateKey",
+            "date_range_days": 365
+          },
+          "additional_columns": [
+            "SalesTerritoryCountry",
+            "SalesTerritoryGroup"
+          ]
+        }
+      ]
+    },
+
+    "comparative": {
+      "enabled": true,
+      "description": "Compare periods (YoY, MoM, QoQ) to detect anomalies",
+      "configurations": [
+        {
+          "name": "Year-over-Year Sales Comparison",
+          "enabled": true,
+          "comparison_type": "yoy",
+          "metric": "SalesAmount",
+          "threshold_pct": 20.0,
+          "min_value": 1000,
+          "aggregation_level": "monthly",
+          "filters": {
+            "territory_filter": null,
+            "product_category_filter": null
+          }
+        },
+        {
+          "name": "Month-over-Month Sales Comparison",
+          "enabled": true,
+          "comparison_type": "mom",
+          "metric": "SalesAmount",
+          "threshold_pct": 15.0,
+          "min_value": 500,
+          "aggregation_level": "monthly",
+          "filters": {}
+        },
+        {
+          "name": "Quarter-over-Quarter Comparison",
+          "enabled": false,
+          "comparison_type": "qoq",
+          "metric": "SalesAmount",
+          "threshold_pct": 25.0,
+          "min_value": 5000,
+          "aggregation_level": "quarterly",
+          "filters": {}
+        }
+      ]
+    },
+
+    "day_on_day": {
+      "enabled": true,
+      "description": "Compare day-to-day changes for specific dimensions",
+      "configurations": [
+        {
+          "name": "Product Daily Sales Changes",
+          "enabled": true,
+          "dimension": "ProductKey",
+          "dimension_name_column": "EnglishProductName",
+          "dimension_table": "DimProduct",
+          "metric": "SalesAmount",
+          "threshold_pct": 50.0,
+          "lookback_days": 30,
+          "top_n": 50,
+          "filters": {
+            "product_status": "Current",
+            "min_sales_amount": 100
+          },
+          "additional_columns": [
+            "ProductLine",
+            "Color",
+            "Class"
+          ]
+        },
+        {
+          "name": "Customer Daily Purchase Changes",
+          "enabled": true,
+          "dimension": "CustomerKey",
+          "dimension_name_column": "CONCAT(FirstName, ' ', LastName)",
+          "dimension_table": "DimCustomer",
+          "metric": "SalesAmount",
+          "threshold_pct": 100.0,
+          "lookback_days": 30,
+          "top_n": 50,
+          "filters": {
+            "min_yearly_income": 50000
+          },
+          "additional_columns": [
+            "EmailAddress",
+            "EnglishEducation"
+          ]
+        },
+        {
+          "name": "Territory Daily Sales Changes",
+          "enabled": true,
+          "dimension": "SalesTerritoryKey",
+          "dimension_name_column": "SalesTerritoryRegion",
+          "dimension_table": "DimSalesTerritory",
+          "metric": "SalesAmount",
+          "threshold_pct": 30.0,
+          "lookback_days": 60,
+          "top_n": 20,
+          "filters": {},
+          "additional_columns": [
+            "SalesTerritoryCountry",
+            "SalesTerritoryGroup"
+          ]
+        },
+        {
+          "name": "Promotion Effectiveness Changes",
+          "enabled": false,
+          "dimension": "PromotionKey",
+          "dimension_name_column": "EnglishPromotionName",
+          "dimension_table": "DimPromotion",
+          "metric": "SalesAmount",
+          "threshold_pct": 40.0,
+          "lookback_days": 30,
+          "top_n": 15,
+          "filters": {
+            "exclude_no_promotion": true
+          },
+          "additional_columns": [
+            "DiscountPct",
+            "EnglishPromotionType"
+          ]
+        }
+      ]
+    },
+
+    "custom_rules": {
+      "enabled": true,
+      "description": "Custom business rules for anomaly detection",
+      "rules": [
+        {
+          "name": "High Value Transaction Alert",
+          "enabled": true,
+          "description": "Alert when a single transaction exceeds threshold",
+          "condition": "SalesAmount > 5000",
+          "severity": "high",
+          "dimensions_to_include": ["CustomerKey", "ProductKey", "SalesTerritoryKey"]
+        },
+        {
+          "name": "Negative Margin Alert",
+          "enabled": true,
+          "description": "Alert when product cost exceeds sales amount",
+          "condition": "TotalProductCost > SalesAmount",
+          "severity": "critical",
+          "dimensions_to_include": ["ProductKey", "CustomerKey"]
+        },
+        {
+          "name": "Unusual Discount Alert",
+          "enabled": true,
+          "description": "Alert when discount exceeds typical threshold",
+          "condition": "UnitPriceDiscountPct > 0.5",
+          "severity": "medium",
+          "dimensions_to_include": ["ProductKey", "PromotionKey"]
+        }
+      ]
+    }
+  },
+
+  "notification_settings": {
+    "severity_thresholds": {
+      "critical": {"enabled": true, "notification": "immediate"},
+      "high": {"enabled": true, "notification": "immediate"},
+      "medium": {"enabled": true, "notification": "daily_digest"},
+      "low": {"enabled": false, "notification": "weekly_digest"}
+    },
+    "channels": {
+      "email": {"enabled": false, "recipients": []},
+      "slack": {"enabled": false, "webhook_url": null},
+      "database": {"enabled": true, "table": "AnomalyAlerts"}
+    }
+  },
+
+  "global_filters": {
+    "date_range": {
+      "enabled": false,
+      "start_date": null,
+      "end_date": null
+    },
+    "territories": {
+      "enabled": false,
+      "include": [],
+      "exclude": []
+    },
+    "products": {
+      "enabled": false,
+      "include_categories": [],
+      "exclude_products": []
+    }
+  },
+
+  "performance_settings": {
+    "max_concurrent_detections": 5,
+    "batch_size": 1000,
+    "cache_results": true,
+    "cache_ttl_minutes": 60
+  }
+}

@@ -10,10 +10,10 @@ const GalaxyBackground = () => {
         width: '100%',
         height: '100%',
         zIndex: 0,
-        background: 'linear-gradient(180deg, #0a0a19 0%, #1a0a2e 50%, #0a0a19 100%)',
+        background: 'linear-gradient(180deg, #001E3C 0%, #0A4C7A 50%, #001E3C 100%)',
         backgroundImage: `
-          radial-gradient(circle, rgba(124, 58, 237, 0.5) 2px, transparent 2px),
-          radial-gradient(circle, rgba(192, 132, 252, 0.3) 1.5px, transparent 1.5px)
+          radial-gradient(circle, rgba(0, 174, 239, 0.3) 2px, transparent 2px),
+          radial-gradient(circle, rgba(0, 176, 185, 0.2) 1.5px, transparent 1.5px)
         `,
         backgroundSize: '60px 60px, 40px 40px',
         backgroundPosition: '0 0, 30px 30px',

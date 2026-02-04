@@ -1,4 +1,4 @@
-"""RAG Service for Internet Sales Natural Language to SQL"""
+"""RAG Service for Natural Language to SQL"""
 import requests
 import json
 import pyodbc
@@ -8,19 +8,49 @@ from config.settings import settings
 from services.schema_context import get_schema_context, get_example_queries
 
 
-class SalesRAGService:
-    """Natural language to SQL query service for Internet Sales data"""
+class RAGService:
+    """Natural language to SQL query service for data warehouse"""
 
-    def __init__(self):
+    def __init__(self, use_vector_search: bool = True, use_cache: bool = True):
         self.schema_context = get_schema_context()
         self.example_queries = get_example_queries()
         self.llama_url = settings.LLAMA_SERVER_URL
         self.model = settings.LLAMA_MODEL
+        self.use_vector_search = use_vector_search
+        self.use_cache = use_cache
+
+        # Initialize cache if enabled
+        self.cache = None
+        if self.use_cache:
+            try:
+                from services.cache_service import get_cache_service
+                self.cache = get_cache_service()
+            except Exception as e:
+                print(f"⚠ Cache initialization failed: {e}")
+                self.use_cache = False
+
+        # Initialize vector store if enabled
+        self.vector_store = None
+        if self.use_vector_search:
+            try:
+                from services.vector_store import get_vector_store
+                self.vector_store = get_vector_store()
+                print("✓ Vector store enabled for semantic search")
+            except Exception as e:
+                print(f"⚠ Vector store initialization failed: {e}")
+                print("  Falling back to hardcoded examples")
+                self.use_vector_search = False
 
     def _get_db_connection(self):
-        """Get database connection"""
-        conn_str = settings.get_db_connection_string()
-        return pyodbc.connect(conn_str, timeout=settings.QUERY_TIMEOUT)
+        """Get database connection from pool"""
+        try:
+            from services.db_pool import get_connection_pool
+            pool = get_connection_pool()
+            return pool.get_connection()
+        except Exception:
+            # Fallback to direct connection
+            conn_str = settings.get_db_connection_string()
+            return pyodbc.connect(conn_str, timeout=settings.QUERY_TIMEOUT)
 
     def _call_llama(self, prompt: str, system_prompt: str = None) -> str:
         """Call Llama API for text generation"""
@@ -60,10 +90,26 @@ class SalesRAGService:
         Returns:
             Dictionary with sql, intent, and explanation
         """
-        # Build few-shot examples
+        # Get relevant examples using semantic search or fallback to hardcoded
+        if self.use_vector_search and self.vector_store:
+            try:
+                # Use semantic search to find similar queries
+                similar_examples = self.vector_store.search_similar_queries(
+                    question=question,
+                    n_results=5
+                )
+                examples_to_use = similar_examples
+            except Exception as e:
+                print(f"⚠ Vector search failed: {e}, using hardcoded examples")
+                examples_to_use = self.example_queries[:5]
+        else:
+            # Use first 5 hardcoded examples
+            examples_to_use = self.example_queries[:5]
+
+        # Build few-shot examples text
         examples_text = "\n\n".join([
-            f"Question: {ex['question']}\nIntent: {ex['intent']}\nSQL:\n{ex['sql']}"
-            for ex in self.example_queries[:5]
+            f"Question: {ex['question']}\nIntent: {ex.get('intent', 'general_query')}\nSQL:\n{ex.get('sql', '')}"
+            for ex in examples_to_use
         ])
 
         system_prompt = f"""You are an expert SQL Server query generator for the AdventureWorksDW2019 database.
@@ -160,9 +206,9 @@ Generate the SQL query:"""
             "time_series": "analyzes trends over time",
             "customer_analysis": "analyzes customer behavior and demographics",
             "product_analysis": "examines product performance",
-            "geographic": "analyzes sales by geographic location",
+            "geographic": "analyzes data by geographic location",
             "promotion": "evaluates promotion effectiveness",
-            "general_query": "queries the sales data"
+            "general_query": "queries the data warehouse"
         }
 
         description = intent_descriptions.get(intent, "queries the database")
@@ -179,6 +225,7 @@ Generate the SQL query:"""
         Returns:
             Dictionary with data, row_count, and columns
         """
+        conn = None
         try:
             conn = self._get_db_connection()
 
@@ -191,7 +238,6 @@ Generate the SQL query:"""
 
             # Execute query
             df = pd.read_sql(sql, conn)
-            conn.close()
 
             # Convert to list of dictionaries
             data = df.to_dict('records')
@@ -206,12 +252,14 @@ Generate the SQL query:"""
                     elif isinstance(value, (pd.Timestamp, pd.DatetimeTZDtype)):
                         row[key] = str(value)
 
-            return {
+            result = {
                 "data": data,
                 "row_count": len(data),
                 "columns": list(df.columns),
                 "success": True
             }
+
+            return result
 
         except Exception as e:
             return {
@@ -221,6 +269,19 @@ Generate the SQL query:"""
                 "success": False,
                 "error": str(e)
             }
+        finally:
+            # Return connection to pool
+            if conn:
+                try:
+                    from services.db_pool import get_connection_pool
+                    pool = get_connection_pool()
+                    pool.return_connection(conn)
+                except Exception:
+                    # Fallback: just close it
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
 
     def query(self, question: str, execute: bool = True, limit: int = 100) -> Dict[str, Any]:
         """
@@ -234,6 +295,13 @@ Generate the SQL query:"""
         Returns:
             Dictionary with SQL, data, and metadata
         """
+        # Check cache first
+        if self.use_cache and self.cache:
+            cached_result = self.cache.get_query_cache(question, execute)
+            if cached_result:
+                cached_result["cached"] = True
+                return cached_result
+
         # Generate SQL
         generation_result = self.generate_sql(question)
 
@@ -242,12 +310,18 @@ Generate the SQL query:"""
             "sql": generation_result["sql"],
             "intent": generation_result["intent"],
             "explanation": generation_result["explanation"],
+            "cached": False
         }
 
         # Execute if requested
         if execute:
             execution_result = self.execute_query(generation_result["sql"], limit)
             result.update(execution_result)
+
+        # Cache the result (5 minutes for queries, 1 hour if just SQL generation)
+        if self.use_cache and self.cache:
+            ttl = 300 if execute else 3600
+            self.cache.set_query_cache(question, result, execute, ttl)
 
         return result
 

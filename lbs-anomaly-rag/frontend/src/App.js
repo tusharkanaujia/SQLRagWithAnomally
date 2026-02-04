@@ -16,7 +16,7 @@ const { Title } = Typography;
 
 function App() {
   const [selectedMenu, setSelectedMenu] = useState('query');
-  const [isDarkMode] = useState(true); // Always dark mode for AI theme
+  const [isDarkMode] = useState(true); // Always dark mode for Barclays theme
 
   const menuItems = [
     {
@@ -56,10 +56,10 @@ function App() {
         theme={{
           algorithm: theme.darkAlgorithm,
           token: {
-            colorPrimary: '#7c3aed',
+            colorPrimary: '#00AEEF',
             colorBgContainer: 'rgba(15, 15, 35, 0.85)',
             colorBgElevated: 'rgba(20, 20, 45, 0.9)',
-            colorBorder: 'rgba(124, 58, 237, 0.3)',
+            colorBorder: 'rgba(0, 174, 239, 0.3)',
             colorText: 'rgba(255, 255, 255, 0.95)',
             colorTextSecondary: 'rgba(255, 255, 255, 0.65)',
             borderRadius: 12,
@@ -74,8 +74,8 @@ function App() {
             style={{
               background: 'rgba(15, 15, 35, 0.85)',
               backdropFilter: 'blur(20px)',
-              borderRight: '1px solid rgba(124, 58, 237, 0.2)',
-              boxShadow: '0 8px 32px rgba(124, 58, 237, 0.15)',
+              borderRight: '1px solid rgba(0, 174, 239, 0.2)',
+              boxShadow: '0 8px 32px rgba(0, 174, 239, 0.15)',
             }}
           >
             <div
@@ -88,15 +88,15 @@ function App() {
                 color: '#fff',
                 fontSize: 22,
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #7c3aed 0%, #c084fc 100%)',
+                background: 'linear-gradient(135deg, #00AEEF 0%, #00B0B9 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
                 letterSpacing: '1px',
               }}
             >
-              <RobotOutlined style={{ marginRight: 10, fontSize: 28, color: '#7c3aed' }} />
-              <span style={{ color: '#fff' }}>AI Sales RAG</span>
+              <BarChartOutlined style={{ marginRight: 10, fontSize: 28, color: '#00AEEF' }} />
+              <span style={{ color: '#fff' }}>Barclays Analytics</span>
             </div>
             <Menu
               theme="dark"
@@ -120,15 +120,15 @@ function App() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottom: '1px solid rgba(124, 58, 237, 0.2)',
-                boxShadow: '0 4px 24px rgba(124, 58, 237, 0.1)',
+                borderBottom: '1px solid rgba(0, 174, 239, 0.2)',
+                boxShadow: '0 4px 24px rgba(0, 174, 239, 0.1)',
               }}
             >
               <Title
                 level={3}
                 style={{
                   margin: 0,
-                  background: 'linear-gradient(135deg, #ffffff 0%, #c084fc 100%)',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #00AEEF 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -136,7 +136,7 @@ function App() {
                   letterSpacing: '0.5px',
                 }}
               >
-                🚀 AI-Powered Sales Intelligence
+                Barclays Sales Intelligence Platform
               </Title>
             </Header>
             <Content

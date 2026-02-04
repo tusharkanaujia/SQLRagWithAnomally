@@ -1,0 +1,215 @@
+{
+  "database": "AdventureWorksDW2019",
+  "description": "Internet Sales Data Warehouse - Star Schema",
+
+  "fact_tables": [
+    {
+      "name": "FactInternetSales",
+      "alias": "sal",
+      "description": "Main fact table containing internet sales transactions",
+      "row_count": 60398,
+      "primary_keys": [
+        {"name": "SalesOrderNumber", "type": "nvarchar(20)"},
+        {"name": "SalesOrderLineNumber", "type": "tinyint"}
+      ],
+      "foreign_keys": [
+        {"name": "ProductKey", "type": "int", "references": "DimProduct.ProductKey"},
+        {"name": "CustomerKey", "type": "int", "references": "DimCustomer.CustomerKey"},
+        {"name": "OrderDateKey", "type": "int", "references": "DimDate.DateKey"},
+        {"name": "DueDateKey", "type": "int", "references": "DimDate.DateKey"},
+        {"name": "ShipDateKey", "type": "int", "references": "DimDate.DateKey"},
+        {"name": "SalesTerritoryKey", "type": "int", "references": "DimSalesTerritory.SalesTerritoryKey"},
+        {"name": "CurrencyKey", "type": "int", "references": "DimCurrency.CurrencyKey"},
+        {"name": "PromotionKey", "type": "int", "references": "DimPromotion.PromotionKey"}
+      ],
+      "measures": [
+        {"name": "SalesAmount", "type": "money", "description": "Total sales amount in transaction currency", "aggregation": "SUM"},
+        {"name": "OrderQuantity", "type": "smallint", "description": "Number of units ordered", "aggregation": "SUM"},
+        {"name": "UnitPrice", "type": "money", "description": "Price per unit", "aggregation": "AVG"},
+        {"name": "ExtendedAmount", "type": "money", "description": "Line item total before discount", "aggregation": "SUM"},
+        {"name": "DiscountAmount", "type": "float", "description": "Total discount applied", "aggregation": "SUM"},
+        {"name": "UnitPriceDiscountPct", "type": "float", "description": "Discount percentage", "aggregation": "AVG"},
+        {"name": "TaxAmt", "type": "money", "description": "Tax amount", "aggregation": "SUM"},
+        {"name": "Freight", "type": "money", "description": "Shipping cost", "aggregation": "SUM"},
+        {"name": "ProductStandardCost", "type": "money", "description": "Standard cost of product", "aggregation": "SUM"},
+        {"name": "TotalProductCost", "type": "money", "description": "Total product cost for line", "aggregation": "SUM"}
+      ],
+      "attributes": [
+        {"name": "OrderDate", "type": "datetime", "description": "Order date"},
+        {"name": "DueDate", "type": "datetime", "description": "Due date"},
+        {"name": "ShipDate", "type": "datetime", "description": "Ship date"},
+        {"name": "CarrierTrackingNumber", "type": "nvarchar(25)", "description": "Carrier tracking number"},
+        {"name": "CustomerPONumber", "type": "nvarchar(25)", "description": "Customer PO number"},
+        {"name": "RevisionNumber", "type": "tinyint", "description": "Revision number"}
+      ]
+    }
+  ],
+
+  "dimension_tables": [
+    {
+      "name": "DimCustomer",
+      "alias": "cust",
+      "description": "Customer demographic and contact information",
+      "row_count": 18484,
+      "primary_key": {"name": "CustomerKey", "type": "int"},
+      "columns": [
+        {"name": "CustomerAlternateKey", "type": "nvarchar(15)", "description": "Customer ID", "business_key": true},
+        {"name": "FirstName", "type": "nvarchar(50)", "description": "First name"},
+        {"name": "MiddleName", "type": "nvarchar(50)", "description": "Middle name"},
+        {"name": "LastName", "type": "nvarchar(50)", "description": "Last name"},
+        {"name": "EmailAddress", "type": "nvarchar(50)", "description": "Email address"},
+        {"name": "Gender", "type": "nvarchar(1)", "description": "Gender - M or F", "values": ["M", "F"]},
+        {"name": "BirthDate", "type": "date", "description": "Birth date"},
+        {"name": "MaritalStatus", "type": "nchar(1)", "description": "Marital status - S or M", "values": ["S", "M"]},
+        {"name": "YearlyIncome", "type": "money", "description": "Yearly income"},
+        {"name": "TotalChildren", "type": "tinyint", "description": "Total children"},
+        {"name": "NumberChildrenAtHome", "type": "tinyint", "description": "Number of children at home"},
+        {"name": "EnglishEducation", "type": "nvarchar(40)", "description": "Education level"},
+        {"name": "EnglishOccupation", "type": "nvarchar(100)", "description": "Job title/occupation"},
+        {"name": "HouseOwnerFlag", "type": "nchar(1)", "description": "House owner flag - 0 or 1", "values": ["0", "1"]},
+        {"name": "NumberCarsOwned", "type": "tinyint", "description": "Number of cars owned"},
+        {"name": "CommuteDistance", "type": "nvarchar(15)", "description": "Commute distance"},
+        {"name": "DateFirstPurchase", "type": "date", "description": "Date of first purchase"},
+        {"name": "Phone", "type": "nvarchar(20)", "description": "Phone number"},
+        {"name": "AddressLine1", "type": "nvarchar(120)", "description": "Address line 1"},
+        {"name": "AddressLine2", "type": "nvarchar(120)", "description": "Address line 2"}
+      ],
+      "name_concatenation": "FirstName + ' ' + LastName"
+    },
+    {
+      "name": "DimProduct",
+      "alias": "prod",
+      "description": "Product catalog information",
+      "row_count": 606,
+      "primary_key": {"name": "ProductKey", "type": "int"},
+      "columns": [
+        {"name": "ProductAlternateKey", "type": "nvarchar(25)", "description": "Product SKU", "business_key": true},
+        {"name": "EnglishProductName", "type": "nvarchar(50)", "description": "Product name"},
+        {"name": "ProductSubcategoryKey", "type": "int", "description": "Links to DimProductSubcategory"},
+        {"name": "Color", "type": "nvarchar(15)", "description": "Product color"},
+        {"name": "Size", "type": "nvarchar(50)", "description": "Product size"},
+        {"name": "SizeRange", "type": "nvarchar(50)", "description": "Size range"},
+        {"name": "Weight", "type": "float", "description": "Product weight"},
+        {"name": "StandardCost", "type": "money", "description": "Standard cost"},
+        {"name": "ListPrice", "type": "money", "description": "List price"},
+        {"name": "DealerPrice", "type": "money", "description": "Dealer price"},
+        {"name": "ProductLine", "type": "nchar(2)", "description": "Product line - R, M, T, S", "values": ["R", "M", "T", "S"]},
+        {"name": "Class", "type": "nchar(2)", "description": "Product class - L, M, H", "values": ["L", "M", "H"]},
+        {"name": "Style", "type": "nchar(2)", "description": "Product style - W, M, U", "values": ["W", "M", "U"]},
+        {"name": "ModelName", "type": "nvarchar(50)", "description": "Model name"},
+        {"name": "EnglishDescription", "type": "nvarchar(400)", "description": "Product description"},
+        {"name": "Status", "type": "nvarchar(7)", "description": "Product status - Current or NULL"},
+        {"name": "StartDate", "type": "datetime", "description": "Start date"},
+        {"name": "EndDate", "type": "datetime", "description": "End date"}
+      ]
+    },
+    {
+      "name": "DimDate",
+      "alias": "dt",
+      "description": "Date dimension for time-based analysis",
+      "row_count": 3652,
+      "primary_key": {"name": "DateKey", "type": "int", "format": "YYYYMMDD"},
+      "date_range": {"start": "2010-01-01", "end": "2014-12-31"},
+      "columns": [
+        {"name": "FullDateAlternateKey", "type": "date", "description": "Actual date value"},
+        {"name": "DayNumberOfWeek", "type": "tinyint", "description": "Day number of week (1-7, Monday=1)"},
+        {"name": "EnglishDayNameOfWeek", "type": "nvarchar(10)", "description": "Day name"},
+        {"name": "DayNumberOfMonth", "type": "tinyint", "description": "Day number of month (1-31)"},
+        {"name": "DayNumberOfYear", "type": "smallint", "description": "Day number of year (1-366)"},
+        {"name": "WeekNumberOfYear", "type": "tinyint", "description": "Week number of year (1-53)"},
+        {"name": "EnglishMonthName", "type": "nvarchar(10)", "description": "Month name"},
+        {"name": "MonthNumberOfYear", "type": "tinyint", "description": "Month number (1-12)"},
+        {"name": "CalendarQuarter", "type": "tinyint", "description": "Calendar quarter (1-4)"},
+        {"name": "CalendarYear", "type": "smallint", "description": "Calendar year"},
+        {"name": "CalendarSemester", "type": "tinyint", "description": "Calendar semester (1-2)"},
+        {"name": "FiscalQuarter", "type": "tinyint", "description": "Fiscal quarter (1-4)"},
+        {"name": "FiscalYear", "type": "smallint", "description": "Fiscal year"},
+        {"name": "FiscalSemester", "type": "tinyint", "description": "Fiscal semester (1-2)"}
+      ]
+    },
+    {
+      "name": "DimSalesTerritory",
+      "alias": "st",
+      "description": "Sales territory geographical information",
+      "row_count": 11,
+      "primary_key": {"name": "SalesTerritoryKey", "type": "int"},
+      "columns": [
+        {"name": "SalesTerritoryAlternateKey", "type": "int", "description": "Alternate key"},
+        {"name": "SalesTerritoryRegion", "type": "nvarchar(50)", "description": "Region (e.g., Northwest, Northeast)"},
+        {"name": "SalesTerritoryCountry", "type": "nvarchar(50)", "description": "Country (e.g., United States, Canada)"},
+        {"name": "SalesTerritoryGroup", "type": "nvarchar(50)", "description": "Territory group (e.g., North America, Europe)"}
+      ]
+    },
+    {
+      "name": "DimCurrency",
+      "alias": "curr",
+      "description": "Currency information for international sales",
+      "row_count": 105,
+      "primary_key": {"name": "CurrencyKey", "type": "int"},
+      "columns": [
+        {"name": "CurrencyAlternateKey", "type": "nchar(3)", "description": "ISO currency code (e.g., USD, EUR, GBP)", "business_key": true},
+        {"name": "CurrencyName", "type": "nvarchar(50)", "description": "Currency name (e.g., US Dollar, Euro)"}
+      ]
+    },
+    {
+      "name": "DimPromotion",
+      "alias": "promo",
+      "description": "Promotion and discount campaign information",
+      "row_count": 16,
+      "primary_key": {"name": "PromotionKey", "type": "int"},
+      "columns": [
+        {"name": "PromotionAlternateKey", "type": "int", "description": "Alternate key"},
+        {"name": "EnglishPromotionName", "type": "nvarchar(255)", "description": "Promotion name"},
+        {"name": "DiscountPct", "type": "float", "description": "Discount percentage"},
+        {"name": "EnglishPromotionType", "type": "nvarchar(50)", "description": "Promotion type"},
+        {"name": "EnglishPromotionCategory", "type": "nvarchar(50)", "description": "Promotion category"},
+        {"name": "StartDate", "type": "datetime", "description": "Promotion start date"},
+        {"name": "EndDate", "type": "datetime", "description": "Promotion end date"},
+        {"name": "MinQty", "type": "int", "description": "Minimum quantity required"},
+        {"name": "MaxQty", "type": "int", "description": "Maximum quantity allowed"}
+      ],
+      "special_notes": "PromotionKey = 1 typically means 'No Discount'"
+    }
+  ],
+
+  "business_rules": [
+    {
+      "rule": "date_joins",
+      "description": "Always join to DimDate using DateKey fields (OrderDateKey, DueDateKey, ShipDateKey)"
+    },
+    {
+      "rule": "customer_names",
+      "description": "Concatenate FirstName and LastName with space: FirstName + ' ' + LastName"
+    },
+    {
+      "rule": "money_aggregation",
+      "description": "Use SUM() for money column aggregations, never COUNT()"
+    },
+    {
+      "rule": "year_queries",
+      "description": "Use DimDate.CalendarYear, not YEAR(OrderDate)"
+    },
+    {
+      "rule": "top_queries",
+      "description": "Use TOP N in SELECT, and always include ORDER BY"
+    },
+    {
+      "rule": "null_promotions",
+      "description": "PromotionKey = 1 typically means 'No Discount'"
+    },
+    {
+      "rule": "currency",
+      "description": "Most sales are in USD, but join to DimCurrency for currency name"
+    },
+    {
+      "rule": "fiscal_vs_calendar",
+      "description": "Data supports both fiscal and calendar year analysis"
+    }
+  ],
+
+  "common_aggregations": {
+    "sales_metrics": ["SUM(SalesAmount)", "SUM(OrderQuantity)", "COUNT(DISTINCT SalesOrderNumber)"],
+    "customer_metrics": ["COUNT(DISTINCT CustomerKey)", "AVG(SalesAmount)", "SUM(SalesAmount)"],
+    "product_metrics": ["SUM(OrderQuantity)", "SUM(SalesAmount)", "AVG(UnitPrice)"]
+  }
+}

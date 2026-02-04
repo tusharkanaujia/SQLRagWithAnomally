@@ -1,4 +1,4 @@
-/* Galaxy AI Theme - App.css */
+/* Barclays Theme - App.css */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 * {
@@ -23,7 +23,7 @@ code {
   min-height: 100vh;
 }
 
-/* Custom scrollbar with galaxy theme */
+/* Custom scrollbar with Barclays theme */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -35,22 +35,22 @@ code {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #7c3aed 0%, #c084fc 100%);
+  background: linear-gradient(135deg, #00AEEF 0%, #00B0B9 100%);
   border-radius: 10px;
   border: 2px solid rgba(15, 15, 35, 0.5);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #8b5cf6 0%, #d8b4fe 100%);
+  background: linear-gradient(135deg, #0A4C7A 0%, #00AEEF 100%);
 }
 
 /* Glassmorphism Cards */
 .ant-card {
   background: rgba(20, 20, 45, 0.7) !important;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(124, 58, 237, 0.2) !important;
+  border: 1px solid rgba(0, 174, 239, 0.2) !important;
   border-radius: 16px !important;
-  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.15),
+  box-shadow: 0 8px 32px rgba(0, 174, 239, 0.15),
               inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -64,15 +64,15 @@ code {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #7c3aed, transparent);
+  background: linear-gradient(90deg, transparent, #00AEEF, transparent);
   opacity: 0;
   transition: opacity 0.4s;
 }
 
 .ant-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(124, 58, 237, 0.5) !important;
-  box-shadow: 0 12px 48px rgba(124, 58, 237, 0.25),
+  border-color: rgba(0, 174, 239, 0.5) !important;
+  box-shadow: 0 12px 48px rgba(0, 174, 239, 0.25),
               inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -81,7 +81,7 @@ code {
 }
 
 .ant-card-head {
-  border-bottom: 1px solid rgba(124, 58, 237, 0.2) !important;
+  border-bottom: 1px solid rgba(0, 174, 239, 0.2) !important;
   color: rgba(255, 255, 255, 0.95) !important;
   font-weight: 600;
 }
@@ -98,20 +98,20 @@ code {
 }
 
 .galaxy-menu .ant-menu-item:hover {
-  background: rgba(124, 58, 237, 0.2) !important;
+  background: rgba(0, 174, 239, 0.2) !important;
 }
 
 .galaxy-menu .ant-menu-item-selected {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(192, 132, 252, 0.2)) !important;
-  border-left: 3px solid #7c3aed;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  background: linear-gradient(135deg, rgba(0, 174, 239, 0.3), rgba(0, 176, 185, 0.2)) !important;
+  border-left: 3px solid #00AEEF;
+  box-shadow: 0 4px 12px rgba(0, 174, 239, 0.3);
 }
 
 /* Buttons with glow effect */
 .ant-btn-primary {
-  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #00AEEF 0%, #0A4C7A 100%);
   border: none;
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 174, 239, 0.4);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 600;
   position: relative;
@@ -135,15 +135,15 @@ code {
 
 .ant-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.6);
-  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  box-shadow: 0 8px 24px rgba(0, 174, 239, 0.6);
+  background: linear-gradient(135deg, #0A4C7A 0%, #00B0B9 100%);
 }
 
 /* Input fields */
 .ant-input,
 .ant-input-affix-wrapper {
   background: rgba(30, 30, 60, 0.5) !important;
-  border: 1px solid rgba(124, 58, 237, 0.3) !important;
+  border: 1px solid rgba(0, 174, 239, 0.3) !important;
   color: rgba(255, 255, 255, 0.95) !important;
   border-radius: 8px;
   transition: all 0.3s;
@@ -151,14 +151,14 @@ code {
 
 .ant-input:hover,
 .ant-input-affix-wrapper:hover {
-  border-color: rgba(124, 58, 237, 0.5) !important;
+  border-color: rgba(0, 174, 239, 0.5) !important;
 }
 
 .ant-input:focus,
 .ant-input-affix-wrapper:focus,
 .ant-input-focused {
-  border-color: #7c3aed !important;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2) !important;
+  border-color: #00AEEF !important;
+  box-shadow: 0 0 0 2px rgba(0, 174, 239, 0.2) !important;
 }
 
 /* Tables */
@@ -169,17 +169,17 @@ code {
 .ant-table-thead > tr > th {
   background: rgba(30, 30, 60, 0.6) !important;
   color: rgba(255, 255, 255, 0.95) !important;
-  border-bottom: 1px solid rgba(124, 58, 237, 0.3) !important;
+  border-bottom: 1px solid rgba(0, 174, 239, 0.3) !important;
   font-weight: 600;
 }
 
 .ant-table-tbody > tr > td {
-  border-bottom: 1px solid rgba(124, 58, 237, 0.1) !important;
+  border-bottom: 1px solid rgba(0, 174, 239, 0.1) !important;
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
 .ant-table-tbody > tr:hover > td {
-  background: rgba(124, 58, 237, 0.1) !important;
+  background: rgba(0, 174, 239, 0.1) !important;
 }
 
 /* Tags with glow */
@@ -194,7 +194,7 @@ code {
 
 .ant-tag:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 174, 239, 0.4);
 }
 
 /* Statistics cards */
@@ -207,7 +207,7 @@ code {
 .ant-statistic-content {
   font-size: 28px;
   font-weight: 700;
-  background: linear-gradient(135deg, #ffffff 0%, #c084fc 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #00AEEF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -221,10 +221,10 @@ code {
 .recharts-default-tooltip {
   background: rgba(20, 20, 45, 0.95) !important;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(124, 58, 237, 0.3) !important;
+  border: 1px solid rgba(0, 174, 239, 0.3) !important;
   border-radius: 12px !important;
   padding: 16px !important;
-  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.3) !important;
+  box-shadow: 0 8px 32px rgba(0, 174, 239, 0.3) !important;
 }
 
 .recharts-tooltip-label {
@@ -240,7 +240,7 @@ code {
 /* SQL code block */
 pre {
   background: rgba(10, 10, 25, 0.8) !important;
-  border: 1px solid rgba(124, 58, 237, 0.3);
+  border: 1px solid rgba(0, 174, 239, 0.3);
   border-radius: 12px;
   padding: 20px !important;
   font-family: 'JetBrains Mono', monospace;
@@ -255,7 +255,7 @@ pre {
   background: rgba(30, 30, 60, 0.6) !important;
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  border: 1px solid rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(0, 174, 239, 0.2);
 }
 
 /* Collapse */
@@ -289,32 +289,32 @@ pre {
 }
 
 .ant-tabs-tab-active {
-  color: #c084fc !important;
+  color: #00AEEF !important;
   font-weight: 700;
 }
 
 .ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: #c084fc !important;
-  text-shadow: 0 0 10px rgba(192, 132, 252, 0.5);
+  color: #00AEEF !important;
+  text-shadow: 0 0 10px rgba(0, 174, 239, 0.5);
 }
 
 .ant-tabs-ink-bar {
-  background: linear-gradient(90deg, #7c3aed, #c084fc) !important;
+  background: linear-gradient(90deg, #00AEEF, #00B0B9) !important;
   height: 3px !important;
-  box-shadow: 0 0 8px rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 8px rgba(0, 174, 239, 0.6);
 }
 
 /* Loading spinner */
 .ant-spin-dot-item {
-  background-color: #7c3aed !important;
+  background-color: #00AEEF !important;
 }
 
 /* Select dropdown */
 .ant-select-dropdown {
   background: rgba(20, 20, 45, 0.95) !important;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(124, 58, 237, 0.3);
-  box-shadow: 0 8px 32px rgba(124, 58, 237, 0.3);
+  border: 1px solid rgba(0, 174, 239, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 174, 239, 0.3);
 }
 
 .ant-select-item {
@@ -322,18 +322,18 @@ pre {
 }
 
 .ant-select-item:hover {
-  background: rgba(124, 58, 237, 0.2) !important;
+  background: rgba(0, 174, 239, 0.2) !important;
 }
 
 /* Pagination */
 .ant-pagination-item {
   background: rgba(30, 30, 60, 0.6);
-  border: 1px solid rgba(124, 58, 237, 0.3);
+  border: 1px solid rgba(0, 174, 239, 0.3);
 }
 
 .ant-pagination-item-active {
-  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
-  border-color: #7c3aed;
+  background: linear-gradient(135deg, #00AEEF, #0A4C7A);
+  border-color: #00AEEF;
 }
 
 /* Responsive */
@@ -372,10 +372,10 @@ pre {
 /* Glow effect for important elements */
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 0 20px rgba(0, 174, 239, 0.4);
   }
   50% {
-    box-shadow: 0 0 40px rgba(124, 58, 237, 0.6);
+    box-shadow: 0 0 40px rgba(0, 174, 239, 0.6);
   }
 }
 
