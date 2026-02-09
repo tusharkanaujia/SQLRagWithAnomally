@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ollama list:*)",
+      "Bash(pip install:*)",
+      "Bash(python main.py:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout /t 8 /nobreak)",
+      "Bash(npm start)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)"
+    ]
+  }
+}

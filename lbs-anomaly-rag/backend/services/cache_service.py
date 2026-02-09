@@ -43,9 +43,9 @@ class CacheService:
             # Test connection
             self.redis_client.ping()
             self.use_redis = True
-            print(f"✓ Redis cache enabled at {redis_url}")
+            print(f"[OK] Redis cache enabled at {redis_url}")
         except Exception as e:
-            print(f"⚠ Redis unavailable: {e}")
+            print(f"[WARN] Redis unavailable: {e}")
             print("  Using in-memory cache (not persisted)")
 
     def _generate_key(self, prefix: str, data: Any) -> str:

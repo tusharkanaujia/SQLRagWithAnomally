@@ -26,7 +26,7 @@ class RAGService:
                 from services.cache_service import get_cache_service
                 self.cache = get_cache_service()
             except Exception as e:
-                print(f"⚠ Cache initialization failed: {e}")
+                print(f"[WARN] Cache initialization failed: {e}")
                 self.use_cache = False
 
         # Initialize vector store if enabled
@@ -35,9 +35,9 @@ class RAGService:
             try:
                 from services.vector_store import get_vector_store
                 self.vector_store = get_vector_store()
-                print("✓ Vector store enabled for semantic search")
+                print("[OK] Vector store enabled for semantic search")
             except Exception as e:
-                print(f"⚠ Vector store initialization failed: {e}")
+                print(f"[WARN] Vector store initialization failed: {e}")
                 print("  Falling back to hardcoded examples")
                 self.use_vector_search = False
 
@@ -100,7 +100,7 @@ class RAGService:
                 )
                 examples_to_use = similar_examples
             except Exception as e:
-                print(f"⚠ Vector search failed: {e}, using hardcoded examples")
+                print(f"[WARN] Vector search failed: {e}, using hardcoded examples")
                 examples_to_use = self.example_queries[:5]
         else:
             # Use first 5 hardcoded examples

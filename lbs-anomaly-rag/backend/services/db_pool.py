@@ -55,7 +55,7 @@ class DatabaseConnectionPool:
             except Exception as e:
                 print(f"Warning: Could not create initial connection: {e}")
 
-        print(f"✓ Connection pool initialized with {self.pool.qsize()} connections")
+        print(f"[OK] Connection pool initialized with {self.pool.qsize()} connections")
 
     def _create_connection(self) -> pyodbc.Connection:
         """Create a new database connection"""
@@ -175,7 +175,7 @@ class DatabaseConnectionPool:
         with self.lock:
             self.active_connections = 0
 
-        print("✓ All connections closed")
+        print("[OK] All connections closed")
 
     def get_stats(self) -> dict:
         """Get connection pool statistics"""
