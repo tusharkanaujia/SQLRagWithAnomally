@@ -9,7 +9,19 @@
       "Bash(npm start)",
       "Bash(netstat:*)",
       "Bash(findstr:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill /PID 20772 /F\")",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(cmd //c \"taskkill /PID 50016 /F\")",
+      "Bash(cmd //c \"taskkill /PID 66628 /F\")",
+      "Bash(cmd //c \"tasklist /FI \"\"PID eq 50016\"\"\")",
+      "Bash(cmd //c:*)",
+      "Bash(cmd /c \"tasklist /FI \"\"PID eq 50016\"\"\")",
+      "Bash(powershell:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python main.py:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

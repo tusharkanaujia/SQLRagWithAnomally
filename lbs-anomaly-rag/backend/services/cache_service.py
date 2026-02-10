@@ -4,6 +4,7 @@ import hashlib
 from typing import Any, Optional, Dict
 from datetime import datetime, timedelta
 import os
+import threading
 
 
 class CacheService:
@@ -15,6 +16,7 @@ class CacheService:
     - Configurable TTL per cache type
     - Cache invalidation support
     - Hit/miss statistics
+    - Disk persistence for in-memory cache (survives restarts)
     """
 
     def __init__(self, redis_url: str = None):
@@ -26,8 +28,13 @@ class CacheService:
         """
         self.redis_client = None
         self.use_redis = False
-        self.memory_cache: Dict[str, tuple] = {}  # key -> (value, expiry)
+        self.memory_cache: Dict[str, tuple] = {}  # key -> (value, expiry_iso)
         self.stats = {"hits": 0, "misses": 0, "sets": 0}
+        self._save_lock = threading.Lock()
+
+        # Disk persistence path
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        self._persist_path = os.path.join(base_dir, "chroma_db", "cache.json")
 
         # Try to connect to Redis
         if redis_url is None:
@@ -46,7 +53,9 @@ class CacheService:
             print(f"[OK] Redis cache enabled at {redis_url}")
         except Exception as e:
             print(f"[WARN] Redis unavailable: {e}")
-            print("  Using in-memory cache (not persisted)")
+            self._load_from_disk()
+            count = len(self.memory_cache)
+            print(f"  Using in-memory cache ({count} entries loaded from disk)")
 
     def _generate_key(self, prefix: str, data: Any) -> str:
         """Generate cache key from data"""
@@ -78,8 +87,8 @@ class CacheService:
             else:
                 # Get from memory cache
                 if key in self.memory_cache:
-                    value, expiry = self.memory_cache[key]
-                    if expiry is None or datetime.now() < expiry:
+                    value, expiry_iso = self.memory_cache[key]
+                    if expiry_iso is None or datetime.now() < datetime.fromisoformat(expiry_iso):
                         self.stats["hits"] += 1
                         return value
                     else:
@@ -118,13 +127,17 @@ class CacheService:
                 )
                 return True
             else:
-                # Set in memory cache
-                expiry = datetime.now() + timedelta(seconds=ttl_seconds) if ttl_seconds else None
-                self.memory_cache[key] = (value, expiry)
+                # Set in memory cache (store expiry as ISO string for disk persistence)
+                expiry_iso = (datetime.now() + timedelta(seconds=ttl_seconds)).isoformat() if ttl_seconds else None
+                self.memory_cache[key] = (value, expiry_iso)
 
                 # Clean up expired entries if cache is getting large
                 if len(self.memory_cache) > 1000:
                     self._cleanup_memory_cache()
+
+                # Persist to disk every 10 writes
+                if self.stats["sets"] % 10 == 0:
+                    self._save_to_disk()
 
                 return True
 
@@ -184,11 +197,42 @@ class CacheService:
         """Remove expired entries from memory cache"""
         now = datetime.now()
         expired_keys = [
-            k for k, (_, expiry) in self.memory_cache.items()
-            if expiry and now >= expiry
+            k for k, (_, expiry_iso) in self.memory_cache.items()
+            if expiry_iso and datetime.fromisoformat(expiry_iso) <= now
         ]
         for k in expired_keys:
             del self.memory_cache[k]
+
+    def _load_from_disk(self):
+        """Load in-memory cache from disk"""
+        if not os.path.exists(self._persist_path):
+            return
+        try:
+            with open(self._persist_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            now = datetime.now()
+            for key, entry in data.items():
+                expiry_iso = entry.get("expiry")
+                if expiry_iso and datetime.fromisoformat(expiry_iso) <= now:
+                    continue  # Skip expired
+                self.memory_cache[key] = (entry["value"], expiry_iso)
+        except Exception as e:
+            print(f"[WARN] Could not load cache from disk: {e}")
+
+    def _save_to_disk(self):
+        """Persist in-memory cache to disk (debounced, non-blocking)"""
+        if self.use_redis:
+            return
+        with self._save_lock:
+            try:
+                os.makedirs(os.path.dirname(self._persist_path), exist_ok=True)
+                data = {}
+                for key, (value, expiry_iso) in self.memory_cache.items():
+                    data[key] = {"value": value, "expiry": expiry_iso}
+                with open(self._persist_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False)
+            except Exception as e:
+                print(f"[WARN] Could not save cache to disk: {e}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
@@ -237,13 +281,27 @@ class CacheService:
         key = self._generate_key(f"anomaly:{detection_type}", params)
         return self.set(key, result, ttl)
 
+    def get_sql_cache(self, sql: str) -> Optional[Dict]:
+        """Get cached SQL execution result (keyed by SQL hash, not question)"""
+        key = self._generate_key("sql", {"sql": sql.strip().upper()})
+        return self.get(key)
+
+    def set_sql_cache(self, sql: str, result: Dict, ttl: int = 3600) -> bool:
+        """Cache SQL result (default: 1 hour - data is static)"""
+        key = self._generate_key("sql", {"sql": sql.strip().upper()})
+        return self.set(key, result, ttl)
+
     def clear_query_cache(self) -> int:
         """Clear all query caches"""
-        return self.clear("query:*")
+        count = self.clear("query:*") + self.clear("sql:*")
+        self._save_to_disk()
+        return count
 
     def clear_anomaly_cache(self) -> int:
         """Clear all anomaly caches"""
-        return self.clear("anomaly:*")
+        count = self.clear("anomaly:*")
+        self._save_to_disk()
+        return count
 
 
 # Global instance

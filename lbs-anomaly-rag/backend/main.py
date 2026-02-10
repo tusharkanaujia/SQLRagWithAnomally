@@ -53,6 +53,9 @@ class QueryResponse(BaseModel):
     success: bool = True
     error: Optional[str] = None
     chart_suggestion: Optional[Dict[str, Any]] = None
+    cached: bool = False
+    sql_cache_hit: bool = False
+    retries: int = 0
 
 
 class ExampleQuery(BaseModel):

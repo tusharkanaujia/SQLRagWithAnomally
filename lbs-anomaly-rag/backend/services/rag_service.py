@@ -117,27 +117,31 @@ Your task is to convert natural language questions into accurate T-SQL queries.
 
 {self.schema_context}
 
-IMPORTANT RULES:
-1. Generate ONLY valid T-SQL queries for SQL Server
-2. Use proper table aliases as documented (sal, cust, prod, dt, st, curr, promo)
-3. Always use INNER JOIN unless explicitly asked for other join types
-4. For TOP N queries, always include ORDER BY clause
-5. Use DimDate.CalendarYear for year filters, not YEAR() function on dates
-6. Concatenate customer names as: FirstName + ' ' + LastName
-7. Wrap all queries in proper SELECT statements
-8. Use SUM() for money columns, not COUNT()
-9. Include appropriate GROUP BY for aggregations
-10. Return ONLY the SQL query, no explanations or markdown
-"""
-
-        prompt = f"""Here are some example questions and their SQL queries:
-
+EXAMPLE QUERIES:
 {examples_text}
 
-Now generate a SQL query for this question:
-Question: {question}
+RULES:
+1. Return ONLY the raw SQL query. No markdown, no explanations, no semicolons, no code fences.
+2. Use table aliases: sal (FactInternetSales), cust (DimCustomer), prod (DimProduct), dt (DimDate), st (DimSalesTerritory), curr (DimCurrency), promo (DimPromotion).
+3. Always INNER JOIN every table you reference. If you use dt.CalendarYear, you MUST have "INNER JOIN DimDate dt ON dt.DateKey = sal.OrderDateKey" in your query.
+4. Never reference a table alias that is not in your FROM or JOIN clauses.
+5. For TOP N queries, always include ORDER BY.
+6. Use DimDate.CalendarYear for year filters, not YEAR() on date columns.
+7. Customer full name: cust.FirstName + ' ' + cust.LastName
+8. Use SUM() for money columns (SalesAmount, etc.), not COUNT().
+9. Include GROUP BY for all non-aggregated columns in SELECT.
+10. "Last year" means the maximum CalendarYear in the data: use (SELECT MAX(CalendarYear) FROM DimDate dt2 INNER JOIN FactInternetSales s2 ON s2.OrderDateKey = dt2.DateKey).
 
-Generate the SQL query:"""
+COMMON MISTAKES TO AVOID:
+- Using dt.CalendarYear without joining DimDate
+- Using st.SalesTerritoryCountry without joining DimSalesTerritory
+- Forgetting GROUP BY when using aggregates with other columns
+- Using COUNT() instead of SUM() for SalesAmount
+"""
+
+        prompt = f"""Question: {question}
+
+SQL:"""
 
         # Get SQL from LLM
         sql_response = self._call_llama(prompt, system_prompt)
@@ -156,6 +160,29 @@ Generate the SQL query:"""
             "intent": intent,
             "explanation": explanation
         }
+
+    def _retry_with_error(self, question: str, failed_sql: str, error: str) -> str:
+        """Ask the LLM to fix a failed SQL query based on the error message"""
+        system_prompt = f"""You are an expert SQL Server query fixer. A query failed with an error.
+Fix the SQL query so it runs correctly. Return ONLY the corrected raw SQL. No markdown, no explanations, no semicolons.
+
+{self.schema_context}
+
+CRITICAL: Every table alias you reference MUST appear in a FROM or JOIN clause.
+"""
+
+        prompt = f"""The following SQL query failed:
+
+{failed_sql}
+
+Error message: {error}
+
+Original question: {question}
+
+Write the corrected SQL query:"""
+
+        response = self._call_llama(prompt, system_prompt)
+        return self._extract_sql(response)
 
     def _extract_sql(self, response: str) -> str:
         """Extract SQL query from LLM response"""
@@ -225,16 +252,22 @@ Generate the SQL query:"""
         Returns:
             Dictionary with data, row_count, and columns
         """
+        # Add TOP clause if not present and no other limiting clause
+        sql_upper = sql.upper().strip()
+        if not any(keyword in sql_upper for keyword in ["TOP ", "FETCH ", "OFFSET "]):
+            if sql_upper.startswith("SELECT"):
+                sql = sql[:6] + f" TOP {limit}" + sql[6:]
+
+        # Check SQL-level cache first (same SQL = same results, regardless of question)
+        if self.use_cache and self.cache:
+            cached = self.cache.get_sql_cache(sql)
+            if cached:
+                cached["sql_cache_hit"] = True
+                return cached
+
         conn = None
         try:
             conn = self._get_db_connection()
-
-            # Add TOP clause if not present and no other limiting clause
-            sql_upper = sql.upper().strip()
-            if not any(keyword in sql_upper for keyword in ["TOP ", "FETCH ", "OFFSET "]):
-                # Insert TOP after SELECT
-                if sql_upper.startswith("SELECT"):
-                    sql = sql[:6] + f" TOP {limit}" + sql[6:]
 
             # Execute query
             df = pd.read_sql(sql, conn)
@@ -258,6 +291,10 @@ Generate the SQL query:"""
                 "columns": list(df.columns),
                 "success": True
             }
+
+            # Cache successful SQL results (1 hour - AdventureWorks data is static)
+            if self.use_cache and self.cache:
+                self.cache.set_sql_cache(sql, result, ttl=3600)
 
             return result
 
@@ -310,20 +347,73 @@ Generate the SQL query:"""
             "sql": generation_result["sql"],
             "intent": generation_result["intent"],
             "explanation": generation_result["explanation"],
-            "cached": False
+            "cached": False,
+            "retries": 0
         }
 
-        # Execute if requested
+        # Execute if requested, with self-correction retry loop
         if execute:
-            execution_result = self.execute_query(generation_result["sql"], limit)
-            result.update(execution_result)
+            current_sql = generation_result["sql"]
+            max_retries = 2
 
-        # Cache the result (5 minutes for queries, 1 hour if just SQL generation)
+            for attempt in range(max_retries + 1):
+                execution_result = self.execute_query(current_sql, limit)
+
+                if execution_result["success"]:
+                    result.update(execution_result)
+                    result["sql"] = current_sql
+                    result["retries"] = attempt
+                    break
+
+                # Failed - try to self-correct if retries remain
+                if attempt < max_retries:
+                    print(f"[RETRY] SQL failed (attempt {attempt + 1}), asking LLM to fix: {execution_result['error'][:100]}")
+                    try:
+                        current_sql = self._retry_with_error(
+                            question=question,
+                            failed_sql=current_sql,
+                            error=execution_result["error"]
+                        )
+                        result["retries"] = attempt + 1
+                    except Exception as e:
+                        print(f"[WARN] Self-correction failed: {e}")
+                        result.update(execution_result)
+                        break
+                else:
+                    # All retries exhausted
+                    result.update(execution_result)
+
+        # Auto-learn: add successful queries to vector store
+        if execute and result.get("success") and self.vector_store:
+            try:
+                self._auto_learn(question, result["sql"], result["intent"])
+            except Exception as e:
+                print(f"[WARN] Auto-learn failed: {e}")
+
+        # Cache the result (1 hour for executed queries, 2 hours for SQL-only)
+        # AdventureWorks data is static, so longer TTLs are safe
         if self.use_cache and self.cache:
-            ttl = 300 if execute else 3600
+            ttl = 3600 if execute else 7200
             self.cache.set_query_cache(question, result, execute, ttl)
 
         return result
+
+    def _auto_learn(self, question: str, sql: str, intent: str):
+        """Add successful query to vector store if it's sufficiently novel"""
+        if not self.vector_store:
+            return
+
+        # Check if a very similar question already exists
+        similar = self.vector_store.search_similar_queries(question, n_results=1)
+        if similar and similar[0]["distance"] < 0.1:
+            return  # Too similar to existing example, skip
+
+        self.vector_store.add_query_example(
+            question=question,
+            sql=sql,
+            intent=intent,
+            metadata={"source": "auto_learn"}
+        )
 
     def validate_sql(self, sql: str) -> Dict[str, Any]:
         """

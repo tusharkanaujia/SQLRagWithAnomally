@@ -1,6 +1,9 @@
-"""Vector Store Service for Semantic Search over Queries"""
-import chromadb
-from chromadb.config import Settings
+"""Vector Store Service for Semantic Search over Queries
+
+Uses SentenceTransformer embeddings with numpy-based cosine similarity search.
+Persists data to a JSON file for durability.
+"""
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any, Optional
 import os
@@ -13,32 +16,50 @@ class VectorStore:
 
     def __init__(self, persist_directory: str = None):
         """
-        Initialize vector store with ChromaDB
+        Initialize vector store with local persistence
 
         Args:
             persist_directory: Directory to persist embeddings (default: ./chroma_db)
         """
         if persist_directory is None:
-            # Store in backend directory
             base_dir = os.path.dirname(os.path.dirname(__file__))
             persist_directory = os.path.join(base_dir, "chroma_db")
 
-        # Initialize ChromaDB client
-        self.client = chromadb.Client(Settings(
-            persist_directory=persist_directory,
-            anonymized_telemetry=False
-        ))
+        os.makedirs(persist_directory, exist_ok=True)
+        self.persist_path = os.path.join(persist_directory, "vector_store.json")
 
-        # Get or create collection
-        self.collection = self.client.get_or_create_collection(
-            name="query_examples",
-            metadata={"description": "SQL query examples for semantic search"}
-        )
-
-        # Initialize embedding model (using all-MiniLM-L6-v2 - fast and efficient)
+        # Initialize embedding model (all-MiniLM-L6-v2 - fast and efficient)
         print("Loading embedding model...")
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         print("Embedding model loaded successfully")
+
+        # Load persisted data or start fresh
+        self.documents: List[Dict[str, Any]] = []
+        self.embeddings: List[List[float]] = []
+        self._load()
+
+    def _load(self):
+        """Load persisted data from disk"""
+        if os.path.exists(self.persist_path):
+            try:
+                with open(self.persist_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.documents = data.get("documents", [])
+                self.embeddings = data.get("embeddings", [])
+                print(f"[OK] Loaded {len(self.documents)} examples from vector store")
+            except Exception as e:
+                print(f"[WARN] Could not load vector store: {e}")
+                self.documents = []
+                self.embeddings = []
+
+    def _save(self):
+        """Persist data to disk"""
+        data = {
+            "documents": self.documents,
+            "embeddings": self.embeddings
+        }
+        with open(self.persist_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
 
     def add_query_example(
         self,
@@ -59,28 +80,25 @@ class VectorStore:
         Returns:
             Document ID
         """
-        # Generate unique ID
-        doc_id = f"query_{len(self.collection.get()['ids'])}_{ datetime.now().timestamp()}"
+        doc_id = f"query_{len(self.documents)}_{datetime.now().timestamp()}"
 
-        # Generate embedding for the question
+        # Generate embedding
         embedding = self.embedding_model.encode(question).tolist()
 
-        # Prepare metadata
-        doc_metadata = {
-            "intent": intent,
+        # Build document
+        doc = {
+            "id": doc_id,
+            "question": question,
             "sql": sql,
+            "intent": intent,
             "added_at": datetime.now().isoformat()
         }
         if metadata:
-            doc_metadata.update(metadata)
+            doc["metadata"] = metadata
 
-        # Add to collection
-        self.collection.add(
-            ids=[doc_id],
-            embeddings=[embedding],
-            documents=[question],
-            metadatas=[doc_metadata]
-        )
+        self.documents.append(doc)
+        self.embeddings.append(embedding)
+        self._save()
 
         return doc_id
 
@@ -91,7 +109,7 @@ class VectorStore:
         intent_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Find similar queries using semantic search
+        Find similar queries using cosine similarity
 
         Args:
             question: Natural language question to search for
@@ -101,124 +119,91 @@ class VectorStore:
         Returns:
             List of similar query examples with metadata
         """
-        # Generate embedding for search query
-        query_embedding = self.embedding_model.encode(question).tolist()
+        if not self.documents:
+            return []
 
-        # Build where filter if intent specified
-        where_filter = None
+        # Generate query embedding
+        query_embedding = self.embedding_model.encode(question)
+
+        # Filter by intent if specified
+        indices = list(range(len(self.documents)))
         if intent_filter:
-            where_filter = {"intent": intent_filter}
+            indices = [i for i in indices if self.documents[i].get("intent") == intent_filter]
 
-        # Search for similar queries
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
-            where=where_filter
-        )
+        if not indices:
+            return []
 
-        # Format results
-        similar_queries = []
-        if results and results['ids']:
-            for i in range(len(results['ids'][0])):
-                similar_queries.append({
-                    "id": results['ids'][0][i],
-                    "question": results['documents'][0][i],
-                    "sql": results['metadatas'][0][i].get('sql', ''),
-                    "intent": results['metadatas'][0][i].get('intent', ''),
-                    "distance": results['distances'][0][i] if 'distances' in results else None,
-                    "metadata": results['metadatas'][0][i]
-                })
+        # Compute cosine similarities
+        doc_embeddings = np.array([self.embeddings[i] for i in indices])
+        query_norm = query_embedding / np.linalg.norm(query_embedding)
+        doc_norms = doc_embeddings / np.linalg.norm(doc_embeddings, axis=1, keepdims=True)
+        similarities = doc_norms @ query_norm
 
-        return similar_queries
+        # Get top-n results
+        top_k = min(n_results, len(indices))
+        top_indices = np.argsort(similarities)[::-1][:top_k]
+
+        results = []
+        for idx in top_indices:
+            orig_idx = indices[idx]
+            doc = self.documents[orig_idx]
+            results.append({
+                "id": doc["id"],
+                "question": doc["question"],
+                "sql": doc["sql"],
+                "intent": doc.get("intent", ""),
+                "distance": float(1 - similarities[idx]),  # Convert similarity to distance
+                "metadata": {k: v for k, v in doc.items() if k not in ("id", "question")}
+            })
+
+        return results
 
     def get_all_examples(self) -> List[Dict[str, Any]]:
-        """
-        Get all query examples from the store
-
-        Returns:
-            List of all query examples
-        """
-        results = self.collection.get()
-
-        examples = []
-        if results and results['ids']:
-            for i in range(len(results['ids'])):
-                examples.append({
-                    "id": results['ids'][i],
-                    "question": results['documents'][i],
-                    "sql": results['metadatas'][i].get('sql', ''),
-                    "intent": results['metadatas'][i].get('intent', ''),
-                    "metadata": results['metadatas'][i]
-                })
-
-        return examples
+        """Get all query examples from the store"""
+        return [
+            {
+                "id": doc["id"],
+                "question": doc["question"],
+                "sql": doc["sql"],
+                "intent": doc.get("intent", ""),
+                "metadata": {k: v for k, v in doc.items() if k not in ("id", "question")}
+            }
+            for doc in self.documents
+        ]
 
     def delete_example(self, doc_id: str) -> bool:
-        """
-        Delete a query example
-
-        Args:
-            doc_id: Document ID to delete
-
-        Returns:
-            True if deleted successfully
-        """
-        try:
-            self.collection.delete(ids=[doc_id])
-            return True
-        except Exception:
-            return False
+        """Delete a query example by ID"""
+        for i, doc in enumerate(self.documents):
+            if doc["id"] == doc_id:
+                self.documents.pop(i)
+                self.embeddings.pop(i)
+                self._save()
+                return True
+        return False
 
     def clear_all(self) -> bool:
-        """
-        Clear all examples from the store
-
-        Returns:
-            True if cleared successfully
-        """
-        try:
-            # Delete the collection and recreate it
-            self.client.delete_collection("query_examples")
-            self.collection = self.client.get_or_create_collection(
-                name="query_examples",
-                metadata={"description": "SQL query examples for semantic search"}
-            )
-            return True
-        except Exception:
-            return False
+        """Clear all examples from the store"""
+        self.documents = []
+        self.embeddings = []
+        self._save()
+        return True
 
     def get_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about the vector store
-
-        Returns:
-            Dictionary with stats
-        """
-        all_examples = self.collection.get()
-
-        intents = {}
-        if all_examples and all_examples['metadatas']:
-            for metadata in all_examples['metadatas']:
-                intent = metadata.get('intent', 'unknown')
-                intents[intent] = intents.get(intent, 0) + 1
+        """Get statistics about the vector store"""
+        intents: Dict[str, int] = {}
+        for doc in self.documents:
+            intent = doc.get("intent", "unknown")
+            intents[intent] = intents.get(intent, 0) + 1
 
         return {
-            "total_examples": len(all_examples['ids']) if all_examples else 0,
+            "total_examples": len(self.documents),
             "intents": intents,
             "embedding_model": "all-MiniLM-L6-v2",
             "embedding_dimension": 384
         }
 
     def bulk_add_examples(self, examples: List[Dict[str, Any]]) -> int:
-        """
-        Add multiple query examples at once
-
-        Args:
-            examples: List of dicts with 'question', 'sql', 'intent' keys
-
-        Returns:
-            Number of examples added
-        """
+        """Add multiple query examples at once"""
         count = 0
         for example in examples:
             try:
@@ -232,7 +217,6 @@ class VectorStore:
             except Exception as e:
                 print(f"Error adding example: {e}")
                 continue
-
         return count
 
 
